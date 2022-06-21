@@ -1,53 +1,344 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-class Home extends StatelessWidget {
-  Home({Key? key}) : super(key: key);
-  final player = AudioPlayer();
+class GameObject {
+  String name;
+  String image;
+  String audio;
 
-  void handleSound(String e) async {
-    await player
-        .play(AssetSource("buku.mp3")); // will immediately start playing
+  GameObject({required this.name, required this.image, required this.audio});
+}
 
-    debugPrint("handleSound");
+class GameSession {
+  List<GameObject> objects;
+
+  String name;
+
+  String bg;
+
+  GameSession({required this.name, required this.objects, required this.bg});
+}
+
+class GameScore {
+  int sessionId;
+
+  GameObject object;
+
+  bool correct;
+
+  String answer;
+
+  GameScore(
+      {required this.object,
+      required this.correct,
+      required this.answer,
+      required this.sessionId});
+}
+
+class Home extends StatefulWidget {
+  const Home({Key? key}) : super(key: key);
+
+  @override
+  State<Home> createState() => _HomeState();
+}
+
+enum TtsState { playing, stopped, paused, continued }
+
+class _HomeState extends State<Home> {
+  bool showHartaKarun = false;
+
+  final bgPlayer = AudioPlayer(playerId: "bgPlayer");
+  final player = AudioPlayer(playerId: "effectPlayer");
+  final effectPlayer = AudioPlayer(playerId: "effectPlayer");
+
+  void handleSound(GameObject e) async {
+    // await player.setVolume(1);
+    // await player.play(AssetSource(e));
+    // // will immediately start playing
+    // debugPrint("effectPlayer $e");
+
+    _speak(e.name);
+  }
+
+  void handleSoundEffect(String e) async {
+    await player.setVolume(1);
+    await player.play(AssetSource(e));
+    // will immediately start playing
+    debugPrint("effectPlayer $e");
+  }
+
+  void playBGM() async {
+    // await bgPlayer.play(
+    //   AssetSource("sound/backsound.mp3"),
+    // );
+
+    // await bgPlayer.setVolume(0.1);
+
+    // await bgPlayer.setReleaseMode(ReleaseMode.loop);
+  }
+
+  void stopBGM() async {
+    await bgPlayer.stop();
+  }
+
+  void stateInit() async {
+    initTts();
+    _initSpeech();
+    playBGM();
+  }
+
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  String _lastWords = '';
+
+  /// This has to happen only once per app
+  void _initSpeech() async {
+    _speechEnabled = await _speechToText.initialize();
+    setState(() {});
+  }
+
+  /// Each time to start a speech recognition session
+  void _startListening() async {
+    await _speechToText.listen(
+      onResult: _onSpeechResult,
+      localeId: "id_ID",
+    );
+    setState(() {});
+  }
+
+  /// Manually stop the active speech recognition session
+  /// Note that there are also timeouts that each platform enforces
+  /// and the SpeechToText plugin supports setting timeouts on the
+  /// listen method.
+  void _stopListening() async {
+    await _speechToText.stop();
+    setState(() {});
+  }
+
+  List<GameScore> scores = [];
+
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    String res = result.recognizedWords;
+
+    debugPrint("rec : $res");
+
+    bool correct =
+        res.toLowerCase().contains(selectedObject!.name.toLowerCase());
+
+    debugPrint(
+        "recognized: $res correct : $correct target :${selectedObject!.name.toLowerCase()}");
+    if (res.isNotEmpty) {
+      setState(() {
+        _lastWords = res;
+
+        scores = [
+          ...scores,
+          GameScore(
+            sessionId: currentIndex,
+            object: selectedObject!,
+            correct: correct,
+            answer: res,
+          ),
+        ];
+        selectedObject = null;
+      });
+    }
+  }
+
+  late FlutterTts flutterTts;
+  String? language;
+  String? engine;
+  double volume = 0.5;
+  double pitch = 1.0;
+  double rate = 0.5;
+  bool isCurrentLanguageInstalled = false;
+
+  TtsState ttsState = TtsState.stopped;
+
+  get isPlaying => ttsState == TtsState.playing;
+  get isStopped => ttsState == TtsState.stopped;
+  get isPaused => ttsState == TtsState.paused;
+  get isContinued => ttsState == TtsState.continued;
+
+  bool get isIOS => !kIsWeb && Platform.isIOS;
+  bool get isAndroid => !kIsWeb && Platform.isAndroid;
+  bool get isWindows => !kIsWeb && Platform.isWindows;
+  bool get isWeb => kIsWeb;
+
+  Future _setAwaitOptions() async {
+    await flutterTts.awaitSpeakCompletion(true);
+  }
+
+  Future _getDefaultEngine() async {
+    var engine = await flutterTts.getDefaultEngine;
+    if (engine != null) {
+      debugPrint(engine);
+    }
+  }
+
+  Future _speak(String words) async {
+    await flutterTts.setVolume(volume);
+    await flutterTts.setSpeechRate(rate);
+    await flutterTts.setPitch(pitch);
+
+    if (words.isNotEmpty) {
+      await flutterTts.speak(words);
+    }
+  }
+
+  initTts() {
+    flutterTts = FlutterTts();
+    flutterTts.setLanguage("id-ID");
+    _setAwaitOptions();
+
+    if (isAndroid) {
+      _getDefaultEngine();
+    }
+
+    flutterTts.setStartHandler(() {
+      setState(() {
+        debugPrint("Playing");
+        ttsState = TtsState.playing;
+      });
+    });
+
+    flutterTts.setCompletionHandler(() {
+      setState(() {
+        debugPrint("Complete");
+        ttsState = TtsState.stopped;
+      });
+    });
+
+    flutterTts.setCancelHandler(() {
+      setState(() {
+        debugPrint("Cancel");
+        ttsState = TtsState.stopped;
+      });
+    });
+
+    if (isWeb || isIOS || isWindows) {
+      flutterTts.setPauseHandler(() {
+        setState(() {
+          debugPrint("Paused");
+          ttsState = TtsState.paused;
+        });
+      });
+
+      flutterTts.setContinueHandler(() {
+        setState(() {
+          debugPrint("Continued");
+          ttsState = TtsState.continued;
+        });
+      });
+    }
+
+    flutterTts.setErrorHandler((msg) {
+      setState(() {
+        debugPrint("error: $msg");
+        ttsState = TtsState.stopped;
+      });
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    stateInit();
+  }
+
+  Offset offset = Offset.zero;
+  final GlobalKey<ScaffoldState> _key = GlobalKey(); // Create a key
+
+  GameObject? selectedObject;
+
+  int currentIndex = 0;
+
+  List<GameSession> sessions = [
+    GameSession(
+        name: "Ruang Kelas",
+        objects: [
+          GameObject(
+            name: "Kursi",
+            image: "assets/objects/kursi kartun.jpg",
+            audio: "sound/kursi.mp3",
+          ),
+          GameObject(
+            name: "Papan Tulis",
+            image: "assets/objects/papan tulis.jpg",
+            audio: "sound/papan_tulis.mp3",
+          ),
+          GameObject(
+            name: "Buku",
+            image: "assets/objects/buku.jpg",
+            audio: "sound/buku.mp3",
+          ),
+          GameObject(
+            name: "Pot Bunga",
+            image: "assets/objects/pot bunga.jpg",
+            audio: "sound/pot_bunga.mp3",
+          ),
+        ],
+        bg: 'ruang_kelas.jpg')
+  ];
+
+  void handleSelectObject(GameObject e) {
+    handleSound(e);
+    setState(() {
+      selectedObject = e;
+      _lastWords = "";
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-              image: AssetImage("assets/classrooms.jpg"), fit: BoxFit.cover),
-        ),
+    GameSession currentSession = sessions[currentIndex];
+
+    List<String> finishedObjects = scores.map((e) => e.object.name).toList();
+
+    List<GameObject> objects = currentSession.objects
+        .where((element) => !finishedObjects.contains(element.name))
+        .toList();
+    return Scaffold(
+      key: _key,
+      onDrawerChanged: (open) {
+        if (!open) {
+          playBGM();
+        } else {
+          stopBGM();
+        }
+      },
+      drawer: Drawer(
         child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Ayo temukkan benda - benda yang ada di kelas kemudian simpan di peti harta karun !',
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
-                    color: Colors.black),
-              ),
-              GridView.count(
-                shrinkWrap: true,
-                crossAxisCount: 3,
-                children: [
-                  ...[
-                    {"assets": "assets/books.jpg", "name": "Buku"},
-                    {"assets": "assets/books.jpg", "name": "Buku"},
-                    {"assets": "assets/books.jpg", "name": "Buku"},
-                    {"assets": "assets/books.jpg", "name": "Buku"},
-                    {"assets": "assets/books.jpg", "name": "Buku"},
-                  ].map(
+          children: [
+            const SizedBox(
+              height: 20,
+            ),
+            const Text(
+              'PETI HARTA KARUN',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            GridView.count(
+              shrinkWrap: true,
+              crossAxisCount: 3,
+              children: scores
+                  .map(
                     (e) => Card(
                       child: InkWell(
-                        onTap: () => handleSound(e["name"] as String),
+                        onTap: () => handleSound(e.object),
                         child: Padding(
                           padding: const EdgeInsets.all(10),
                           child: Image.asset(
-                            e["assets"] as String,
+                            e.object.image,
                             fit: BoxFit.cover,
                             height: 70,
                             width: 70,
@@ -56,18 +347,182 @@ class Home extends StatelessWidget {
                       ),
                     ),
                   )
-                ],
-              ),
-              Row(
-                children: const [
-                  // Image.asset(
-                  //   'assets/books.jpg',
-                  //   fit: BoxFit.cover,
-                  //   height: 80,
-                  //   width: 80,
-                  // ),
-                ],
-              )
-            ]));
+                  .toList(),
+            ),
+            const Spacer(),
+            SizedBox(
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _key.currentState!.closeDrawer();
+                    },
+                    child: const Text('Tutup'),
+                  ),
+                )),
+            const SizedBox(
+              height: 30,
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _key.currentState!.openDrawer(); // <-- Opens
+          bgPlayer.stop();
+        },
+        backgroundColor: Colors.green,
+        child: ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: Image.asset(
+              'assets/objects/peti harta karun.jpg',
+            )),
+      ),
+      body: Container(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+                colorFilter: ColorFilter.mode(
+                    Colors.black.withOpacity(0.3), BlendMode.darken),
+                image: const AssetImage("assets/bg/ruang_kelas.jpg"),
+                fit: BoxFit.cover),
+          ),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: selectedObject == null
+                  ? Column(
+                      children: const [
+                        Text(
+                          'Ayo temukkan benda - benda yang ada di Kelas!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.none,
+                              color: Colors.white),
+                        ),
+                        Text(
+                          'Masukkan benda - benda ke harta karun !',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.none,
+                              color: Colors.white),
+                        ),
+                      ],
+                    )
+                  : Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(children: [
+                          const Text(
+                            'Coba Ucapkan kata',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          const SizedBox(
+                            height: 20,
+                          ),
+                          Text(
+                            selectedObject!.name,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          const SizedBox(
+                            height: 20,
+                          ),
+                          Image.asset(
+                            selectedObject!.image,
+                            fit: BoxFit.cover,
+                            height: 100,
+                            width: 100,
+                          ),
+                          const SizedBox(
+                            height: 20,
+                          ),
+                          Text(_lastWords.isNotEmpty
+                              ? _lastWords
+                              : 'Tidak ada kata yang terdeteksi'),
+                          const SizedBox(
+                            height: 20,
+                          ),
+                          _speechEnabled
+                              ? isPlaying
+                                  ? const CircularProgressIndicator()
+                                  : ElevatedButton.icon(
+                                      onPressed: () {
+                                        if (_speechToText.isNotListening) {
+                                          _startListening();
+                                        } else {
+                                          _stopListening();
+                                        }
+                                      },
+                                      icon: const Icon(Icons.mic),
+                                      label: Text(_speechToText.isListening
+                                          ? "Berhenti"
+                                          : "Mulai"))
+                              : const Text('Tidak ada microfon terdeteksi'),
+                        ]),
+                      ),
+                    ),
+            ),
+            selectedObject == null
+                ? objects.isNotEmpty
+                    ? GridView.count(
+                        shrinkWrap: true,
+                        crossAxisCount: 3,
+                        children: objects
+                            .map(
+                              (e) => Card(
+                                child: InkWell(
+                                  onTap: () => {handleSelectObject(e)},
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Image.asset(
+                                      e.image,
+                                      fit: BoxFit.cover,
+                                      height: 70,
+                                      width: 70,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      )
+                    : Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: ListView(
+                              shrinkWrap: true,
+                              children: scores
+                                  .map((e) => ListTile(
+                                        title: Text(e.object.name),
+                                        onLongPress: () =>
+                                            {handleSelectObject(e.object)},
+                                        trailing: Checkbox(
+                                          value: e.correct,
+                                          onChanged: (bool? value) {},
+                                        ),
+                                        onTap: () {
+                                          _speak(e.answer);
+                                          debugPrint("speak ${e.answer}");
+                                        },
+                                      ))
+                                  .toList()),
+                        ),
+                      )
+                : Container(),
+          ])),
+    );
   }
 }

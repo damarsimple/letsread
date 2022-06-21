@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:letsread/landing.dart';
-import 'package:letsread/tutorial.dart';
-import 'package:letsread/home.dart';
+import 'package:sight_word/landing.dart';
+import 'package:sight_word/tutorial.dart';
+import 'package:sight_word/home.dart';
 
 Future<void> main() async {
   runApp(const MyApp());
@@ -14,7 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Let\'s Read',
+      title: 'Sight Word',
       theme: ThemeData(
         primarySwatch: Colors.green,
       ),
@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const Landing(),
         '/tutorial': (context) => const Tutorial(),
-        '/home': (context) => Home(),
+        '/home': (context) => const Home(),
       },
     );
   }

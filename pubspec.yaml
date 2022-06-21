@@ -1,4 +1,4 @@
-name: letsread
+name: sight_word
 description: A new Flutter project.
 
 # The following line prevents the package from being accidentally published to
@@ -38,6 +38,9 @@ dependencies:
   audio_service: ^0.18.4
   audioplayers: ^1.0.0-rc.1
   soundpool: ^2.3.0
+  speech_to_text: ^5.5.0
+  flutter_tts: ^3.4.0
+  flutter_launcher_icons: ^0.9.3
 
 dev_dependencies:
   flutter_test:
@@ -93,3 +96,11 @@ flutter:
   # see https://flutter.dev/custom-fonts/#from-packages
   assets:
     - assets/
+    - assets/bg/
+    - assets/objects/
+    - assets/sound/
+    - 
+flutter_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/sight-word.png"

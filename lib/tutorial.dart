@@ -5,106 +5,80 @@ class Tutorial extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-        color: Colors.white,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const Text(
-                'Petunjuk',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.none,
-                    color: Colors.black),
-              ),
-              ...[
-                {
-                  "name": "Tombol Profile",
-                  "description": "Berisi biodata",
-                  "icon": Icons.people
-                },
-                {
-                  "name": "Tombol Home",
-                  "description": "Menu Utama",
-                  "icon": Icons.home
-                },
-                {
-                  "name": "Tombol Mulai",
-                  "description": "Mulai membaca",
-                  "icon": Icons.play_arrow
-                },
-                {
-                  "name": "Tombol Petunjuk",
-                  "description": "Berisi biodata",
-                  "icon": Icons.help
-                },
-                {
-                  "name": "Tombol Bantuan",
-                  "description": "Berisi biodata",
-                  "icon": Icons.help
-                },
-                {
-                  "name": "Tombol Quiz",
-                  "description": "Berisi biodata",
-                  "icon": Icons.quiz
-                },
-                {
-                  "name": "Tombol Tutup",
-                  "description": "Berisi biodata",
-                  "icon": Icons.close
-                },
-                {
-                  "name": "Tombol Pengaturan",
-                  "description": "Berisi biodata",
-                  "icon": Icons.settings
-                },
-                {
-                  "name": "Tombol Kembali",
-                  "description": "Berisi biodata",
-                  "icon": Icons.close
-                }
-              ].map((e) => Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              ElevatedButton(
-                                  onPressed: () {},
-                                  child: Icon(e["icon"] as IconData)),
-                              const SizedBox(width: 20),
-                              Text(
-                                e["name"] as String,
-                                style: const TextStyle(
-                                    fontSize: 24,
-                                    decoration: TextDecoration.none,
-                                    color: Colors.black),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            e["description"] as String,
-                            style: const TextStyle(
-                                fontSize: 20,
-                                decoration: TextDecoration.none,
-                                color: Colors.black),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                  onPressed: () => {Navigator.pushNamed(context, '/home')},
-                  child: const Padding(
-                    padding: EdgeInsets.all(5),
-                    child: Text('LANJUTKAN'),
-                  )),
-              const SizedBox(height: 20),
-            ],
+    return Scaffold(
+        body: SingleChildScrollView(
+      child: Column(
+        children: [
+          const Text(
+            'Petunjuk',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.none,
+                color: Colors.black),
           ),
-        ));
+          const SizedBox(
+            height: 30,
+          ),
+          const Text("Klik  benda - benda yang ada di kelas"),
+          const SizedBox(
+            height: 30,
+          ),
+          Card(
+            child: InkWell(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Image.asset(
+                  "assets/objects/buku.jpg",
+                  fit: BoxFit.cover,
+                  height: 70,
+                  width: 70,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(
+            height: 30,
+          ),
+          const Text("Klik  tombol mulai untuk memulai pengenalan suara"),
+          const SizedBox(
+            height: 30,
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.mic),
+            label: const Text("Mulai"),
+            onPressed: () {},
+          ),
+          const SizedBox(
+            height: 30,
+          ),
+          const Text("Klik  bermain mulai untuk memulai permainan"),
+          const SizedBox(height: 20),
+          ElevatedButton(
+              onPressed: () => {Navigator.pushNamed(context, '/home')},
+              child: const Padding(
+                padding: EdgeInsets.all(5),
+                child: Text('BERMAIN'),
+              )),
+          const SizedBox(height: 20),
+          const Text(
+            'Biodata TIM Pengembang',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.none,
+                color: Colors.black),
+          ),
+          const Text(
+            '1.	Irmawanti (Mahasiswa PLB Pascasarjana UNY 2021)',
+            style:
+                TextStyle(decoration: TextDecoration.none, color: Colors.black),
+          ),
+          const Text(
+            '2.	Damar Albaribin Syamsu (Mahasiswa PTI Sarjana UNY 2021)',
+            style:
+                TextStyle(decoration: TextDecoration.none, color: Colors.black),
+          ),
+        ],
+      ),
+    ));
   }
 }
