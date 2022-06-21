@@ -11,9 +11,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class GameObject {
   String name;
   String image;
-  String audio;
 
-  GameObject({required this.name, required this.image, required this.audio});
+  GameObject({required this.name, required this.image});
 }
 
 class GameSession {
@@ -75,13 +74,13 @@ class _HomeState extends State<Home> {
   }
 
   void playBGM() async {
-    // await bgPlayer.play(
-    //   AssetSource("sound/backsound.mp3"),
-    // );
+    await bgPlayer.play(
+      AssetSource("sound/backsound.mp3"),
+    );
 
-    // await bgPlayer.setVolume(0.1);
+    await bgPlayer.setVolume(0.1);
 
-    // await bgPlayer.setReleaseMode(ReleaseMode.loop);
+    await bgPlayer.setReleaseMode(ReleaseMode.loop);
   }
 
   void stopBGM() async {
@@ -96,7 +95,6 @@ class _HomeState extends State<Home> {
 
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
-  String _lastWords = '';
 
   /// This has to happen only once per app
   void _initSpeech() async {
@@ -122,6 +120,8 @@ class _HomeState extends State<Home> {
     setState(() {});
   }
 
+  String detectedWords = "";
+
   List<GameScore> scores = [];
 
   void _onSpeechResult(SpeechRecognitionResult result) {
@@ -136,8 +136,6 @@ class _HomeState extends State<Home> {
         "recognized: $res correct : $correct target :${selectedObject!.name.toLowerCase()}");
     if (res.isNotEmpty) {
       setState(() {
-        _lastWords = res;
-
         scores = [
           ...scores,
           GameScore(
@@ -147,6 +145,11 @@ class _HomeState extends State<Home> {
             answer: res,
           ),
         ];
+
+        if (_speechToText.isListening) {
+          _stopListening();
+        }
+
         selectedObject = null;
       });
     }
@@ -183,7 +186,11 @@ class _HomeState extends State<Home> {
     }
   }
 
+  bool allowTTS = true;
+
   Future _speak(String words) async {
+    if (!allowTTS) return;
+
     await flutterTts.setVolume(volume);
     await flutterTts.setSpeechRate(rate);
     await flutterTts.setPitch(pitch);
@@ -261,40 +268,25 @@ class _HomeState extends State<Home> {
   int currentIndex = 0;
 
   List<GameSession> sessions = [
-    GameSession(
-        name: "Ruang Kelas",
-        objects: [
-          GameObject(
-            name: "Kursi",
-            image: "assets/objects/kursi kartun.jpg",
-            audio: "sound/kursi.mp3",
-          ),
-          GameObject(
-            name: "Papan Tulis",
-            image: "assets/objects/papan tulis.jpg",
-            audio: "sound/papan_tulis.mp3",
-          ),
-          GameObject(
-            name: "Buku",
-            image: "assets/objects/buku.jpg",
-            audio: "sound/buku.mp3",
-          ),
-          GameObject(
-            name: "Pot Bunga",
-            image: "assets/objects/pot bunga.jpg",
-            audio: "sound/pot_bunga.mp3",
-          ),
-        ],
-        bg: 'ruang_kelas.jpg')
+    kelasSession,
+    halamanSession,
+    kantinSession,
+    tokoSession,
+    pasarSession
   ];
 
   void handleSelectObject(GameObject e) {
     handleSound(e);
     setState(() {
+      if (_speechToText.isListening) {
+        _stopListening();
+      }
+
       selectedObject = e;
-      _lastWords = "";
     });
   }
+
+  bool allFinished = false;
 
   @override
   Widget build(BuildContext context) {
@@ -351,15 +343,24 @@ class _HomeState extends State<Home> {
             ),
             const Spacer(),
             SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  _key.currentState!.closeDrawer();
+                },
+                child: const Text('Tutup'),
+              ),
+            ),
+            SizedBox(
                 width: double.infinity,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      _key.currentState!.closeDrawer();
-                    },
-                    child: const Text('Tutup'),
-                  ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      allowTTS = !allowTTS;
+                    });
+                  },
+                  child: Text(
+                      '${allowTTS ? "Matikan" : "Nyalakan"} Bantuan Suara'),
                 )),
             const SizedBox(
               height: 30,
@@ -380,135 +381,177 @@ class _HomeState extends State<Home> {
             )),
       ),
       body: Container(
+          height: double.infinity,
           decoration: BoxDecoration(
             image: DecorationImage(
                 colorFilter: ColorFilter.mode(
                     Colors.black.withOpacity(0.3), BlendMode.darken),
-                image: const AssetImage("assets/bg/ruang_kelas.jpg"),
+                image: AssetImage(currentSession.bg),
                 fit: BoxFit.cover),
           ),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: selectedObject == null
-                  ? Column(
-                      children: const [
-                        Text(
-                          'Ayo temukkan benda - benda yang ada di Kelas!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.none,
-                              color: Colors.white),
-                        ),
-                        Text(
-                          'Masukkan benda - benda ke harta karun !',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.none,
-                              color: Colors.white),
-                        ),
-                      ],
+          child: SingleChildScrollView(
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              selectedObject == null
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 90.0, bottom: 10),
+                      child: allFinished
+                          ? Card(
+                              child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    children: [
+                                      const Text(
+                                          'Anda berhasil menyelesaikan semua peti harta karun ! '),
+                                      ElevatedButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              allFinished = false;
+                                              allowTTS = false;
+                                              currentIndex = 0;
+                                              scores = [];
+                                            });
+                                          },
+                                          child: const Text(
+                                              'Main Ulang Tanpa Bantuan Suara'))
+                                    ],
+                                  )),
+                            )
+                          : Column(
+                              children: [
+                                Text(
+                                  '${objects.isEmpty ? "" : "Ayo temukan"} benda - benda yang ada di ${currentSession.name}!',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.none,
+                                      color: Colors.white),
+                                ),
+                                Text(
+                                  objects.isEmpty
+                                      ? "Rekam kamu selesai!"
+                                      : 'Masukkan benda - benda ke harta karun !',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.none,
+                                      color: Colors.white),
+                                )
+                              ],
+                            ),
                     )
-                  : Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(children: [
-                          const Text(
-                            'Coba Ucapkan kata',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              decoration: TextDecoration.none,
+                  : Padding(
+                      padding: const EdgeInsets.only(
+                          top: 120.0, bottom: 20, right: 20, left: 20),
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(children: [
+                            const Text(
+                              'Coba Ucapkan kata',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 18,
+                                decoration: TextDecoration.none,
+                              ),
                             ),
-                          ),
-                          const SizedBox(
-                            height: 20,
-                          ),
-                          Text(
-                            selectedObject!.name,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.none,
+                            const SizedBox(
+                              height: 20,
                             ),
-                          ),
-                          const SizedBox(
-                            height: 20,
-                          ),
-                          Image.asset(
-                            selectedObject!.image,
-                            fit: BoxFit.cover,
-                            height: 100,
-                            width: 100,
-                          ),
-                          const SizedBox(
-                            height: 20,
-                          ),
-                          Text(_lastWords.isNotEmpty
-                              ? _lastWords
-                              : 'Tidak ada kata yang terdeteksi'),
-                          const SizedBox(
-                            height: 20,
-                          ),
-                          _speechEnabled
-                              ? isPlaying
-                                  ? const CircularProgressIndicator()
-                                  : ElevatedButton.icon(
-                                      onPressed: () {
-                                        if (_speechToText.isNotListening) {
-                                          _startListening();
-                                        } else {
-                                          _stopListening();
-                                        }
-                                      },
-                                      icon: const Icon(Icons.mic),
-                                      label: Text(_speechToText.isListening
-                                          ? "Berhenti"
-                                          : "Mulai"))
-                              : const Text('Tidak ada microfon terdeteksi'),
-                        ]),
+                            Text(
+                              selectedObject!.name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 20,
+                            ),
+                            Image.asset(
+                              selectedObject!.image,
+                              fit: BoxFit.cover,
+                              height: 100,
+                              width: 100,
+                            ),
+                            const SizedBox(
+                              height: 20,
+                            ),
+                            Text(detectedWords),
+                            const SizedBox(
+                              height: 20,
+                            ),
+                            _speechEnabled
+                                ? isPlaying
+                                    ? const CircularProgressIndicator()
+                                    : ElevatedButton.icon(
+                                        onPressed: () {
+                                          if (_speechToText.isNotListening) {
+                                            _startListening();
+                                          } else {
+                                            _stopListening();
+                                          }
+                                        },
+                                        icon: const Icon(Icons.mic),
+                                        label: Text(_speechToText.isListening
+                                            ? "Berhenti"
+                                            : "Mulai"))
+                                : const Text('Tidak ada microfon terdeteksi'),
+                          ]),
+                        ),
                       ),
                     ),
-            ),
-            selectedObject == null
-                ? objects.isNotEmpty
-                    ? GridView.count(
-                        shrinkWrap: true,
-                        crossAxisCount: 3,
-                        children: objects
-                            .map(
-                              (e) => Card(
-                                child: InkWell(
-                                  onTap: () => {handleSelectObject(e)},
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Image.asset(
-                                      e.image,
-                                      fit: BoxFit.cover,
-                                      height: 70,
-                                      width: 70,
+              selectedObject == null && !allFinished
+                  ? objects.isNotEmpty
+                      ? GridView.count(
+                          shrinkWrap: true,
+                          crossAxisCount: 3,
+                          children: objects
+                              .map(
+                                (e) => Card(
+                                  child: InkWell(
+                                    onTap: () => {handleSelectObject(e)},
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: Image.asset(
+                                        e.image,
+                                        fit: BoxFit.cover,
+                                        height: 70,
+                                        width: 70,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            )
-                            .toList(),
-                      )
-                    : Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: ListView(
-                              shrinkWrap: true,
-                              children: scores
-                                  .map((e) => ListTile(
+                              )
+                              .toList(),
+                        )
+                      : Card(
+                          child: SingleChildScrollView(
+                            physics: const ScrollPhysics(),
+                            child: Column(
+                              children: [
+                                ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: scores.length,
+                                    itemBuilder:
+                                        (BuildContext context, int index) {
+                                      GameScore e = scores.elementAt(index);
+
+                                      return ListTile(
                                         title: Text(e.object.name),
-                                        onLongPress: () =>
-                                            {handleSelectObject(e.object)},
+                                        onLongPress: () {
+                                          handleSelectObject(e.object);
+
+                                          setState(() {
+                                            detectedWords = e.answer;
+                                          });
+                                        },
                                         trailing: Checkbox(
                                           value: e.correct,
                                           onChanged: (bool? value) {},
@@ -517,12 +560,150 @@ class _HomeState extends State<Home> {
                                           _speak(e.answer);
                                           debugPrint("speak ${e.answer}");
                                         },
-                                      ))
-                                  .toList()),
-                        ),
-                      )
-                : Container(),
-          ])),
+                                      );
+                                    }),
+                                ElevatedButton(
+                                    onPressed: () {
+                                      _key.currentState!.closeDrawer();
+                                      setState(() {
+                                        if (sessions.length > currentIndex) {
+                                          currentIndex = currentIndex + 1;
+                                          detectedWords = "";
+                                        } else {
+                                          allFinished = true;
+                                        }
+                                      });
+                                    },
+                                    child: const Text("Selanjutnya"))
+                              ],
+                            ),
+                          ),
+                        )
+                  : Container(),
+            ]),
+          )),
     );
   }
 }
+
+GameSession kelasSession = GameSession(
+    name: "Ruang Kelas",
+    objects: [
+      GameObject(
+        name: "Kursi",
+        image: "assets/objects/kelas/kursi kartun.jpg",
+      ),
+      GameObject(
+        name: "Papan Tulis",
+        image: "assets/objects/kelas/papan tulis.jpg",
+      ),
+      GameObject(
+        name: "Buku",
+        image: "assets/objects/kelas/buku.jpg",
+      ),
+      GameObject(
+        name: "Anak Memakai Tas",
+        image: "assets/objects/kelas/anak memakai tas.png",
+      ),
+      GameObject(
+        name: "Tas Sekolah",
+        image: "assets/objects/kelas/tas sekolah.jpg",
+      ),
+      GameObject(
+        name: "Penggaris",
+        image: "assets/objects/kelas/penggaris.jpg",
+      ),
+      GameObject(
+        name: "Pensil",
+        image: "assets/objects/kelas/pensil.jpg",
+      ),
+    ],
+    bg: 'assets/bg/ruang_kelas.jpg');
+
+GameSession kantinSession = GameSession(
+    name: "Kantin",
+    objects: [
+      GameObject(
+        name: "Tisu",
+        image: "assets/objects/kantin/tisu.jpg",
+      ),
+      GameObject(
+        name: "Donat",
+        image: "assets/objects/kantin/donat.jpg",
+      ),
+      GameObject(
+        name: "Permen",
+        image: "assets/objects/kantin/permen.jpg",
+      ),
+      GameObject(
+        name: "Botol",
+        image: "assets/objects/kantin/botol.jpg",
+      ),
+    ],
+    bg: 'assets/bg/kantin_sekolah.jpg');
+
+GameSession pasarSession = GameSession(
+    name: "Pasar",
+    objects: [
+      GameObject(
+        name: "Daging",
+        image: "assets/objects/pasar/daging.webp",
+      ),
+      GameObject(
+        name: "Telur Ayam",
+        image: "assets/objects/pasar/telur ayam.jpg",
+      ),
+      GameObject(
+        name: "Buah Jeruk",
+        image: "assets/objects/pasar/buah jeruk.webp",
+      ),
+    ],
+    bg: 'assets/bg/pasar.jpg');
+
+GameSession tokoSession = GameSession(
+    name: "Pasar",
+    objects: [
+      GameObject(
+        name: "Sepeda",
+        image: "assets/objects/toko/sepeda.webp",
+      ),
+      GameObject(
+        name: "Celana",
+        image: "assets/objects/toko/celana.jpg",
+      ),
+      GameObject(
+        name: "kaos",
+        image: "assets/objects/toko/kaos.webp",
+      ),
+      GameObject(
+        name: "Gunting",
+        image: "assets/objects/toko/gunting",
+      ),
+    ],
+    bg: 'assets/bg/gambar_toko.jpg');
+
+GameSession halamanSession = GameSession(
+    name: "Halaman Sekolah",
+    objects: [
+      GameObject(
+        name: "Rumput",
+        image: "assets/objects/halaman sekolah/rumput.jpg",
+      ),
+      GameObject(
+        name: "Jendela",
+        image: "assets/objects/halaman sekolah/jendela.jpg",
+      ),
+      GameObject(
+        name: "Pohon",
+        image: "assets/objects/halaman sekolah/pohon.jpg",
+      ),
+      GameObject(
+        name: "Pot Bunga",
+        image: "assets/objects/halaman sekolah/pot bunga.jpg",
+      ),
+      GameObject(
+        name: "Bendera merah Putih",
+        image: "assets/objects/halaman sekolah/bendera merah putih.jpg",
+      ),
+    ],
+    bg: 'assets/bg/taman_sekolah.jpg');

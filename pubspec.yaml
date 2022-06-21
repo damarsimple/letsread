@@ -98,8 +98,12 @@ flutter:
     - assets/
     - assets/bg/
     - assets/objects/
+    - assets/objects/kelas/
+    - assets/objects/kantin/
+    - assets/objects/pasar/
+    - assets/objects/toko/
+    - assets/objects/halaman sekolah/
     - assets/sound/
-    - 
 flutter_icons:
   android: "launcher_icon"
   ios: true
